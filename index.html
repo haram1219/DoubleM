@@ -7,6 +7,8 @@
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="assets/css/cms.css" />
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js"></script>
 
 <style>
   :root {
@@ -76,41 +78,30 @@
   .home p { font-size:clamp(18px,2.9vw,24px); color:var(--ink); font-weight:800; letter-spacing:-0.5px; max-width:680px; margin:0 auto; }
   .home .hint { margin-top:40px; font-size:13px; color:#bbb; letter-spacing:1px; }
 
-  /* 홈 로봇 애니메이션 (rocker-bogie → 도립진자) */
-  .roboscene { width:min(360px,82%); margin:34px auto 0; }
-  .roboscene svg { width:100%; height:auto; display:block; overflow:visible; }
-  .roboscene .stroke { fill:none; stroke:var(--ink); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
-  .roboscene .fillk { fill:var(--ink); }
-  .roboscene .wheelf { fill:#fff; stroke:var(--ink); stroke-width:3; }
-  .roboscene .ground { stroke:#dcdcdc; stroke-width:3; stroke-linecap:round; }
-
-  .rb { animation: rbDrive 4.6s cubic-bezier(.4,0,.2,1) infinite; }
-  @keyframes rbDrive {
-    0%   { transform: translateX(-190px); opacity:1; }
-    38%  { transform: translateX(120px);  opacity:1; }
-    48%  { transform: translateX(470px);  opacity:1; }
-    49%  { opacity:0; }
-    100% { transform: translateX(470px);  opacity:0; }
+  /* 홈 3D 캡스톤 로봇 */
+  .model-stage {
+    position:relative; width:min(680px,96%); height:clamp(270px,42vh,470px);
+    margin:24px auto 0; overflow:hidden; border-radius:24px;
+    background:radial-gradient(circle at 50% 38%,#4b4e55 0,#25272c 58%,#111216 100%);
+    border:1px solid #2d2f34;
   }
-  .rbTilt { animation: rbTilt 4.6s ease-in-out infinite; transform-box:fill-box; transform-origin:50% 82%; }
-  @keyframes rbTilt {
-    0%,26%,44%,100% { transform: rotate(0deg); }
-    34% { transform: rotate(-7deg); }
-    40% { transform: rotate(4deg); }
+  .model-stage::after {
+    content:""; position:absolute; left:17%; right:17%; bottom:8%; height:10%;
+    border-radius:50%; background:rgba(0,0,0,.28); filter:blur(16px); pointer-events:none;
   }
-  .rb .wheel { animation: spin .55s linear infinite; transform-box:fill-box; transform-origin:center; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .ip { animation: ipShow 4.6s ease infinite; }
-  @keyframes ipShow { 0%,49%{opacity:0;} 53%,96%{opacity:1;} 100%{opacity:0;} }
-  .ipRod { animation: ipBalance 4.6s cubic-bezier(.3,0,.3,1) infinite; transform-box:view-box; transform-origin:250px 116px; }
-  @keyframes ipBalance {
-    0%,50% { transform: rotate(-17deg); }
-    58% { transform: rotate(13deg); }
-    66% { transform: rotate(-8deg); }
-    74% { transform: rotate(5deg); }
-    82% { transform: rotate(-3deg); }
-    90%,100% { transform: rotate(0deg); }
+  .model-stage model-viewer {
+    position:relative; z-index:1; display:block; width:100%; height:100%;
+    --poster-color:transparent; --progress-bar-color:#1a1a1a;
+  }
+  .model-loading {
+    position:absolute; inset:0; display:grid; place-items:center;
+    color:#d0d0d0; font-size:14px; font-weight:700; letter-spacing:.02em;
+  }
+  @media (max-width:620px){
+    .home img.logo { margin-bottom:22px; }
+    .home p { font-size:17px; }
+    .model-stage { height:310px; margin-top:20px; border-radius:18px; }
+    .home .hint { margin-top:24px; }
   }
 
   /* ===== 카드 ===== */
@@ -207,9 +198,6 @@
   @media (prefers-reduced-motion: reduce){
     html { scroll-behavior:auto; }
     .view.active { animation:none; }
-    .rb { display:none; }
-    .ip { opacity:1; }
-    .ipRod { animation:none; transform:none; }
   }
 </style>
 </head>
@@ -227,7 +215,9 @@
       <a data-go="external">대외 활동</a>
       <a data-go="award">수상</a>
       <a data-go="robots">만든 로봇</a>
+      <a data-go="archive">대회·프로젝트</a>
       <a data-go="network">방과후</a>
+      <a class="admin-link" href="admin.html">관리</a>
       <a class="nav__ig" href="https://instagram.com/double.m_srh" target="_blank" rel="noopener" aria-label="인스타그램">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -246,41 +236,24 @@
     <!-- ▼ 홈 문구 ▼ -->
     <p>넘고, 균형 잡다.<br />험지극복과 밸런싱 로봇을 만드는 동아리, DoubleM.</p>
 
-    <!-- 로봇 애니메이션: rocker-bogie 주행 → 도립진자 균형 -->
-    <div class="roboscene" aria-hidden="true">
-      <svg viewBox="0 0 400 150" role="img">
-        <!-- 바닥 + 작은 둔덕 -->
-        <path class="ground" d="M20 128 H150 q14 0 22 -9 q8 9 22 9 H380" fill="none" />
-
-        <!-- 도립진자 (밸런싱) -->
-        <g class="ip">
-          <g class="wheelf-wrap">
-            <circle class="wheelf" cx="250" cy="116" r="16" />
-            <line class="stroke" x1="250" y1="104" x2="250" y2="128" />
-            <line class="stroke" x1="238" y1="116" x2="262" y2="116" />
-          </g>
-          <g class="ipRod">
-            <line class="stroke" x1="250" y1="116" x2="250" y2="56" />
-            <rect class="fillk" x="236" y="40" width="28" height="20" rx="4" />
-          </g>
-        </g>
-
-        <!-- 로커-보기 (험지극복) -->
-        <g class="rb">
-          <g class="rbTilt">
-            <!-- 섀시 -->
-            <rect class="stroke" x="24" y="70" width="72" height="24" rx="6" fill="#fff" />
-            <!-- 로커 링키지 -->
-            <path class="stroke" d="M40 92 L34 112 M60 92 L60 112 M80 92 L92 112 M40 92 L80 92" />
-            <!-- 바퀴 3개 -->
-            <g class="wheel"><circle class="wheelf" cx="34" cy="112" r="12"/><line class="stroke" x1="34" y1="103" x2="34" y2="121"/><line class="stroke" x1="25" y1="112" x2="43" y2="112"/></g>
-            <g class="wheel"><circle class="wheelf" cx="60" cy="112" r="12"/><line class="stroke" x1="60" y1="103" x2="60" y2="121"/><line class="stroke" x1="51" y1="112" x2="69" y2="112"/></g>
-            <g class="wheel"><circle class="wheelf" cx="92" cy="112" r="12"/><line class="stroke" x1="92" y1="103" x2="92" y2="121"/><line class="stroke" x1="83" y1="112" x2="101" y2="112"/></g>
-          </g>
-        </g>
-      </svg>
+    <!-- Inventor OBJ에서 변환한 캡스톤 어셈블리 -->
+    <div class="model-stage">
+      <model-viewer
+        src="assets/models/doublem-capstone.glb"
+        alt="DoubleM 캡스톤 최종 어셈블리 3D 모델"
+        camera-controls
+        auto-rotate
+        rotation-per-second="16deg"
+        environment-image="neutral"
+        shadow-intensity="1"
+        shadow-softness=".85"
+        exposure="1"
+        interaction-prompt="auto"
+        loading="eager">
+        <div class="model-loading" slot="poster">3D 모델 불러오는 중</div>
+      </model-viewer>
     </div>
-    <p class="hint">위 메뉴를 눌러 둘러보세요</p>
+    <p class="hint">드래그해서 로봇을 돌려보세요 · 위 메뉴를 눌러 둘러보세요</p>
   </div>
 </section>
 
@@ -453,6 +426,22 @@
   </div>
 </section>
 
+<!-- 관리자 페이지에서 관리하는 대회·프로젝트 기록 -->
+<section class="view" id="archive">
+  <div class="inner">
+    <p class="eyebrow">Archive</p>
+    <h2 class="title">대회와 프로젝트</h2>
+    <p class="archive-intro">DoubleM이 참여한 대회와 직접 만든 프로젝트의 기록입니다. 폴더를 선택하면 사진과 활동 내용을 볼 수 있어요.</p>
+    <div id="folder-grid" class="folder-grid">
+      <p class="folder-empty">관리자 페이지에서 대회 또는 프로젝트 폴더를 추가하면 이곳에 자동으로 표시됩니다.</p>
+    </div>
+    <div id="folder-detail" class="folder-detail" hidden>
+      <div class="folder-detail__head"><div><p class="eyebrow">Folder</p><h3 id="folder-detail-title" class="title" style="font-size:clamp(26px,4vw,42px);margin-bottom:8px;"></h3><p id="folder-detail-description"></p></div></div>
+      <div id="post-grid" class="post-grid"></div>
+    </div>
+  </div>
+</section>
+
 <!-- 방과후 -->
 <section class="view dark center" id="network">
   <div class="inner">
@@ -486,6 +475,7 @@
   links.forEach(el => el.addEventListener("click", () => go(el.dataset.go)));
   toggle.addEventListener("click", () => menu.classList.toggle("open"));
 </script>
+<script type="module" src="assets/js/public-archive.js"></script>
 
 </body>
 </html>
