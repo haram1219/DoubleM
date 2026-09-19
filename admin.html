@@ -15,8 +15,9 @@
     button,.button{border:0;border-radius:10px;padding:12px 15px;background:#191919;color:white;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}.button.secondary,button.secondary{background:#eee;color:#222}.button.danger,button.danger{background:#fff;color:var(--danger);border:1px solid #f1c9c9}.button:disabled,button:disabled{opacity:.55;cursor:wait}
     .message{min-height:22px;margin:14px 0 0;font-size:14px;color:var(--muted)}.message.error{color:var(--danger)}.message.ok{color:#137333}.hidden{display:none!important}.dashboard-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:26px}.dashboard-head h1{margin:0;letter-spacing:-1.5px}.dashboard-head p{color:var(--muted);margin:7px 0 0}
     .layout{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}.stack{display:grid;gap:22px}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card-list{display:grid;gap:12px}.manage-card{border:1px solid var(--line);border-radius:13px;padding:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.manage-card h3{margin:3px 0 6px;font-size:17px}.manage-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}.badge{display:inline-block;border-radius:999px;padding:4px 8px;background:#f0f0f0;color:#555;font-size:12px;font-weight:800}.actions{display:flex;gap:8px;flex-wrap:wrap}.manage-card img{width:72px;height:54px;object-fit:cover;border-radius:8px;background:#eee}.notice{border-left:3px solid #222;padding:13px 14px;background:#f7f7f7;color:#555;font-size:14px;line-height:1.55}
+    .site-editor{margin-bottom:22px}.site-groups{display:grid;gap:16px}.site-group{border:1px solid var(--line);border-radius:14px;padding:18px}.site-group h3{margin:0 0 12px}.site-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.site-field.full{grid-column:1/-1}.site-field label{display:flex;justify-content:space-between;gap:10px}.site-field small{font-weight:500;color:var(--muted)}.toggle-row{display:flex;align-items:center;gap:10px;margin-top:16px}.toggle-row input{width:auto}.toggle-row label{margin:0}.asset-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.format-help{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
     dialog{width:min(560px,calc(100% - 28px));border:0;border-radius:18px;padding:0;box-shadow:0 22px 80px rgba(0,0,0,.28)}dialog::backdrop{background:rgba(0,0,0,.45)}.dialog-body{padding:26px}.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.dialog-head h2{margin:0}.icon-button{border:0;background:#eee;color:#222;width:34px;height:34px;border-radius:50%;font-size:20px;padding:0}
-    @media(max-width:820px){.layout{grid-template-columns:1fr}.dashboard-head{align-items:start;flex-direction:column}.field-row{grid-template-columns:1fr}.bar,main{width:min(100% - 28px,1120px)}}
+    @media(max-width:820px){.layout{grid-template-columns:1fr}.dashboard-head{align-items:start;flex-direction:column}.field-row,.site-fields,.asset-row{grid-template-columns:1fr}.site-field.full{grid-column:auto}.bar,main{width:min(100% - 28px,1120px)}}
   </style>
 </head>
 <body>
@@ -42,6 +43,15 @@
 
     <section id="admin-screen" class="screen">
       <div class="dashboard-head"><div><h1>콘텐츠 관리</h1><p>먼저 대회 또는 프로젝트 폴더를 만들고, 그 안에 사진과 기록을 추가하세요.</p></div></div>
+      <section class="panel site-editor">
+        <h2>사이트 전체 수정</h2>
+        <p class="intro">메뉴 이름, 소개 글, 활동 내용, 사진, 3D 모델과 각 화면의 공개 여부를 여기서 바꿀 수 있습니다.</p>
+        <form id="site-content-form">
+          <div id="site-content-fields" class="site-groups"><p class="message">사이트 설정을 불러오는 중…</p></div>
+          <div class="actions" style="justify-content:flex-end;margin-top:20px"><button type="submit">사이트 설정 저장</button></div>
+        </form>
+        <p id="site-content-message" class="message"></p>
+      </section>
       <div class="layout">
         <div class="stack">
           <section class="panel"><h2>새 폴더</h2><p class="intro">예: 2026 지능형 로봇 경진대회, SCARA 로봇팔 프로젝트</p>
