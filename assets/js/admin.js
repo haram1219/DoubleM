@@ -168,7 +168,8 @@ async function deleteFolder(id) {
 async function ensureAdmin() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return show("login");
-  const { data, error } = await supabase.from("admin_users").select("user_id").eq("user_id", session.user.id).maybeSingle();
+  const email = session.user.email?.trim().toLowerCase();
+  const { data, error } = await supabase.from("admin_emails").select("email").eq("email", email || "").maybeSingle();
   if (error || !data) {
     await supabase.auth.signOut();
     message($("#login-message"), "이 계정은 관리자 권한이 없습니다.", "error");
@@ -182,12 +183,27 @@ $("#login-form").addEventListener("submit", async event => {
   event.preventDefault();
   const form = event.currentTarget;
   const status = $("#login-message");
-  setBusy(form, true); message(status, "로그인하는 중…");
   const values = new FormData(form);
+  setBusy(form, true); message(status, "로그인하는 중…");
   const { error } = await supabase.auth.signInWithPassword({ email: values.get("email"), password: values.get("password") });
   setBusy(form, false);
   if (error) return message(status, `로그인하지 못했어요: ${error.message}`, "error");
   await ensureAdmin();
+});
+
+$("#sign-up").addEventListener("click", async () => {
+  const form = $("#login-form");
+  const status = $("#login-message");
+  const values = new FormData(form);
+  const email = String(values.get("email") || "").trim();
+  const password = String(values.get("password") || "");
+  if (!email || !password) return message(status, "이메일과 비밀번호를 먼저 입력해주세요.", "error");
+  if (password.length < 6) return message(status, "비밀번호는 6자 이상으로 입력해주세요.", "error");
+  setBusy(form, true); $("#sign-up").disabled = true; message(status, "계정을 만드는 중…");
+  const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: new URL("admin.html", window.location.href).href } });
+  setBusy(form, false); $("#sign-up").disabled = false;
+  if (error) return message(status, `계정을 만들지 못했어요: ${error.message}`, "error");
+  message(status, "확인 이메일을 보냈어요. 이메일 인증 후 이 페이지에서 로그인해주세요.", "ok");
 });
 
 $("#folder-form").addEventListener("submit", async event => {
