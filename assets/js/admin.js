@@ -6,6 +6,7 @@ const signOutButton = $("#sign-out");
 let supabase;
 let folders = [];
 let posts = [];
+let siteContent = [];
 let editState = null;
 
 function show(name) {
@@ -48,6 +49,102 @@ async function removeImages(paths) {
   if (validPaths.length) {
     const { error } = await supabase.storage.from("doublem-media").remove(validPaths);
     if (error) console.warn("이미지 삭제 실패:", error.message);
+  }
+}
+
+async function uploadSiteAsset(file, key, valueType) {
+  if (!file) return null;
+  const isImage = valueType === "image";
+  const isModel = valueType === "model";
+  if (isImage && !file.type.startsWith("image/")) throw new Error("사진 항목에는 이미지 파일만 올릴 수 있어요.");
+  if (isModel && !file.name.toLowerCase().endsWith(".glb")) throw new Error("3D 모델은 GLB 파일만 올릴 수 있어요.");
+  if (file.size > 30 * 1024 * 1024) throw new Error("파일은 30MB 이하만 올릴 수 있어요.");
+  const path = `site/${key}/${Date.now()}-${safeFilename(file.name)}`;
+  const { error } = await supabase.storage.from("doublem-assets").upload(path, file, { cacheControl:"3600", upsert:false });
+  if (error) throw error;
+  const { data } = supabase.storage.from("doublem-assets").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function renderSiteContentFields() {
+  const root = $("#site-content-fields");
+  if (!siteContent.length) {
+    root.innerHTML = '<p class="message">수정할 사이트 설정이 없습니다.</p>';
+    return;
+  }
+  const groups = new Map();
+  siteContent.forEach(item => {
+    if (!groups.has(item.group_name)) groups.set(item.group_name, []);
+    groups.get(item.group_name).push(item);
+  });
+  root.innerHTML = [...groups.entries()].map(([group, items]) => `
+    <section class="site-group">
+      <h3>${escapeHtml(group)}</h3>
+      <div class="site-fields">${items.map(item => renderSiteField(item)).join("")}</div>
+    </section>`).join("");
+  root.querySelectorAll("[data-clear-site-file]").forEach(button => button.addEventListener("click", () => {
+    const key = button.dataset.clearSiteFile;
+    const valueInput = root.querySelector(`[data-site-value="${CSS.escape(key)}"]`);
+    const fileInput = root.querySelector(`[data-site-file="${CSS.escape(key)}"]`);
+    if (valueInput) valueInput.value = "";
+    if (fileInput) fileInput.value = "";
+  }));
+}
+
+function renderSiteField(item) {
+  const key = escapeHtml(item.key);
+  const label = escapeHtml(item.label);
+  const value = escapeHtml(item.value || "");
+  if (item.value_type === "boolean") {
+    return `<div class="site-field"><div class="toggle-row"><input id="site-${key}" data-site-value="${key}" type="checkbox" ${String(item.value).toLowerCase() !== "false" ? "checked" : ""}><label for="site-${key}">${label}</label></div></div>`;
+  }
+  if (item.value_type === "textarea") {
+    return `<div class="site-field full"><label for="site-${key}">${label}<small>줄바꿈 가능</small></label><textarea id="site-${key}" data-site-value="${key}" rows="5">${value}</textarea></div>`;
+  }
+  if (item.value_type === "image" || item.value_type === "model") {
+    const accept = item.value_type === "image" ? "image/*" : ".glb,model/gltf-binary,application/octet-stream";
+    const help = item.value_type === "image" ? "새 사진을 선택하면 기존 사진 대신 표시됩니다." : "Inventor에서 변환한 GLB 파일을 선택하세요.";
+    return `<div class="site-field full"><label for="site-${key}">${label}</label><div class="asset-row"><input id="site-${key}" data-site-value="${key}" type="url" value="${value}" placeholder="현재 파일 주소"><input data-site-file="${key}" type="file" accept="${accept}"></div><div class="actions" style="margin-top:8px"><button class="secondary" data-clear-site-file="${key}" type="button">현재 파일 제거</button></div><p class="format-help">${help}</p></div>`;
+  }
+  const type = item.value_type === "url" ? "url" : "text";
+  return `<div class="site-field"><label for="site-${key}">${label}</label><input id="site-${key}" data-site-value="${key}" type="${type}" value="${value}"></div>`;
+}
+
+async function loadSiteContentAdmin() {
+  const { data, error } = await supabase.from("site_content").select("*").order("group_name").order("sort_order");
+  if (error) throw error;
+  siteContent = data || [];
+  renderSiteContentFields();
+}
+
+async function saveSiteContent(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const status = $("#site-content-message");
+  setBusy(form, true);
+  message(status, "사이트 설정을 저장하는 중…");
+  try {
+    const values = new Map();
+    form.querySelectorAll("[data-site-value]").forEach(input => {
+      values.set(input.dataset.siteValue, input.type === "checkbox" ? String(input.checked) : input.value.trim());
+    });
+    for (const fileInput of form.querySelectorAll("[data-site-file]")) {
+      const file = fileInput.files?.[0];
+      if (!file) continue;
+      const item = siteContent.find(entry => entry.key === fileInput.dataset.siteFile);
+      if (!item) continue;
+      values.set(item.key, await uploadSiteAsset(file, item.key, item.value_type));
+    }
+    const updates = [...values.entries()].map(([key, value]) => supabase.from("site_content").update({ value }).eq("key", key));
+    const results = await Promise.all(updates);
+    const failed = results.find(result => result.error);
+    if (failed) throw failed.error;
+    await loadSiteContentAdmin();
+    message(status, "저장했습니다. 공개 사이트를 새로고침하면 바로 확인할 수 있어요.", "ok");
+  } catch (error) {
+    message(status, `저장하지 못했어요: ${error.message}`, "error");
+  } finally {
+    setBusy(form, false);
   }
 }
 
@@ -176,7 +273,12 @@ async function ensureAdmin() {
     return show("login");
   }
   show("admin");
-  try { await loadData(); } catch (error) { $("#admin-list").innerHTML = `<p class="message error">목록을 불러오지 못했어요: ${escapeHtml(error.message)}</p>`; }
+  try {
+    await Promise.all([loadData(), loadSiteContentAdmin()]);
+  } catch (error) {
+    $("#admin-list").innerHTML = `<p class="message error">목록을 불러오지 못했어요: ${escapeHtml(error.message)}</p>`;
+    $("#site-content-fields").innerHTML = `<p class="message error">사이트 설정을 불러오지 못했어요: ${escapeHtml(error.message)}</p>`;
+  }
 }
 
 $("#login-form").addEventListener("submit", async event => {
@@ -248,6 +350,7 @@ $("#post-form").addEventListener("submit", async event => {
 });
 
 signOutButton.addEventListener("click", async () => { await supabase.auth.signOut(); show("login"); });
+$("#site-content-form").addEventListener("submit", saveSiteContent);
 $("#edit-form").addEventListener("submit", saveEdit);
 $("#edit-close").addEventListener("click", () => $("#edit-dialog").close());
 $("#edit-cancel").addEventListener("click", () => $("#edit-dialog").close());
